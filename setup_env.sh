@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "===================================="
-echo "  Setting up environment for btl_nlp"
+echo "  Setting up environment for water_leakage"
 echo "===================================="
 echo
 
@@ -31,20 +31,20 @@ echo
 echo "Installing required packages..."
 pip install -r requirements.txt
 
-# Install btl_nlp package in development mode
+# Install water_leakage package in development mode
 echo
-echo "Installing btl_nlp package..."
+echo "Installing water_leakage package..."
 pip install -e .
 
 echo
 echo "Checking installation..."
-python -c "import btl_nlp; print('btl_nlp version:', btl_nlp.__version__)"
+python -c "import water_leakage; print('water_leakage version:', water_leakage.__version__)"
 
 echo
 echo "========================================="
 echo "  Setup complete!"
 echo "  - Virtual environment is activated"
-echo "  - btl_nlp package is installed"
+echo "  - water_leakage package is installed"
 echo
 echo "  To run sample analysis:"
 echo "  python run_sample.py"

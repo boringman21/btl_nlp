@@ -1,4 +1,4 @@
-# BTL NLP - Leak Detection System
+# Water Leakage - Leak Detection System
 
 A Python package for analyzing leak detection data from water systems.
 
@@ -7,8 +7,8 @@ A Python package for analyzing leak detection data from water systems.
 Clone the repository and install the package:
 
 ```bash
-git clone https://github.com/boringman21/btl_nlp.git
-cd btl_nlp
+git clone https://github.com/boringman21/water_leakage.git
+cd water_leakage
 pip install -e .
 ```
 
@@ -21,7 +21,7 @@ pip install -r requirements.txt
 ## Project Structure
 
 ```
-btl_nlp/
+water_leakage/
 │
 ├── data/                    # Data storage and management
 │   ├── __init__.py
@@ -53,8 +53,8 @@ btl_nlp/
 ### Loading and Transforming Data
 
 ```python
-from btl_nlp.data.data_loader import DataLoader
-from btl_nlp.data.data_transform import transform_df, add_derived_metrics
+from water_leakage.data.data_loader import DataLoader
+from water_leakage.data.data_transform import transform_df, add_derived_metrics
 
 # Initialize the data loader
 data_loader = DataLoader('/path/to/data_files')
@@ -72,7 +72,7 @@ final_df = add_derived_metrics(transformed_df)
 ### Visualizing Data
 
 ```python
-from btl_nlp.utils.visualization import plot_flow_and_pressure, plot_correlation
+from water_leakage.utils.visualization import plot_flow_and_pressure, plot_correlation
 
 # Plot flow and pressure data for a specific sensor
 plot_flow_and_pressure(final_df, sensor_id='8401210607558', save_dir='output/plots')
@@ -84,7 +84,7 @@ plot_correlation(final_df, sensor_id='8401210607558', save_dir='output/plots')
 ### Fourier Analysis
 
 ```python
-from btl_nlp.models.fourier import plot_fourier_approximation
+from water_leakage.models.fourier import plot_fourier_approximation
 
 # Plot Fourier approximation for a specific sensor and metric
 plot_fourier_approximation(
@@ -100,7 +100,7 @@ plot_fourier_approximation(
 ## Memory Management
 
 ```python
-from btl_nlp.utils.memory_utils import print_memory_usage, clear_memory
+from water_leakage.utils.memory_utils import print_memory_usage, clear_memory
 
 # Check memory usage
 print_memory_usage()

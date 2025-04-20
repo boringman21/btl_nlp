@@ -40,5 +40,4 @@ docs/_build/
 .DS_Store
 Thumbs.db
 
-btl_nlp.egg-info
-# LeakDataset
+LeakDataset/

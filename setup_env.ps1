@@ -1,6 +1,6 @@
-# PowerShell script to set up environment for btl_nlp
+# PowerShell script to set up environment for water_leakage
 Write-Host "====================================" -ForegroundColor Green
-Write-Host "  Setting up environment for btl_nlp" -ForegroundColor Green
+Write-Host "  Setting up environment for water_leakage" -ForegroundColor Green
 Write-Host "====================================" -ForegroundColor Green
 Write-Host ""
 
@@ -46,16 +46,16 @@ Write-Host ""
 Write-Host "Installing packages from requirements.txt..." -ForegroundColor Cyan
 pip install -r requirements.txt
 
-# Install btl_nlp package in development mode
+# Install water_leakage package in development mode
 Write-Host ""
-Write-Host "Installing btl_nlp package..." -ForegroundColor Cyan
+Write-Host "Installing water_leakage package..." -ForegroundColor Cyan
 pip install -e .
 
 # Verify installation
 Write-Host ""
 Write-Host "Checking installation..." -ForegroundColor Cyan
 try {
-    python -c "import btl_nlp; print('btl_nlp version:', btl_nlp.__version__)"
+    python -c "import water_leakage; print('water_leakage version:', water_leakage.__version__)"
     python -c "import matplotlib; print('matplotlib version:', matplotlib.__version__)"
     python -c "import pandas; print('pandas version:', pandas.__version__)"
     python -c "import numpy; print('numpy version:', numpy.__version__)"
@@ -70,8 +70,8 @@ Write-Host ""
 Write-Host "==========================================" -ForegroundColor Green
 Write-Host "  Setup complete!" -ForegroundColor Green
 Write-Host "  - Virtual environment is activated" -ForegroundColor Green
-Write-Host "  - btl_nlp package is installed" -ForegroundColor Green
+Write-Host "  - water_leakage package is installed" -ForegroundColor Green
 Write-Host ""
 Write-Host "  To run sample analysis:" -ForegroundColor Yellow
 Write-Host "  python run_sample.py" -ForegroundColor Yellow
-Write-Host "==========================================" 
+Write-Host "===========================================" 
