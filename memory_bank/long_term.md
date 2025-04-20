@@ -89,27 +89,6 @@ The `models` module includes analytical techniques:
 - `fourier_approximation()`: Implements Fourier series approximation
 - `plot_fourier_approximation()`: Visualizes original signal vs. Fourier approximation
 
-## Usage Examples
-
-```python
-# Load and transform data
-from btl_nlp.data.data_loader import DataLoader
-from btl_nlp.data.data_transform import transform_df, add_derived_metrics
-
-loader = DataLoader('/path/to/data')
-data = loader.load_all_data()
-result_df = transform_df(data['merged_data'])
-result_df = add_derived_metrics(result_df)
-
-# Visualize sensor data
-from btl_nlp.utils.visualization import plot_flow_and_pressure
-plot_flow_and_pressure(result_df, sensor_id='8401210607558')
-
-# Memory management
-from btl_nlp.utils.memory_utils import clear_memory
-clear_memory()
-```
-
 ## Future Improvements
 
 1. Add anomaly detection algorithms for leak identification
