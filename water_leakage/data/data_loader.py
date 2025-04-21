@@ -135,3 +135,32 @@ class DataLoader:
             file_info[name] = info
             
         return file_info 
+
+
+def load_data(data_path: str) -> Optional[pd.DataFrame]:
+    """
+    High-level function to load and merge data from all query files.
+    
+    Args:
+        data_path (str): Path to the data directory
+        
+    Returns:
+        pd.DataFrame or None: Merged DataFrame or None if loading fails
+    """
+    try:
+        # Initialize the data loader
+        loader = DataLoader(data_path)
+        
+        # Load and merge the data
+        data_dict = loader.load_all_data()
+        
+        # Return the merged dataframe
+        return data_dict['merged_data']
+    
+    except (ValueError, FileNotFoundError) as e:
+        print(f"Error loading data: {str(e)}")
+        return None
+    
+    except Exception as e:
+        print(f"Unexpected error loading data: {str(e)}")
+        return None 

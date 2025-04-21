@@ -293,3 +293,110 @@ def plot_all_sensors(
         _save_plot(fig, save_dir, f"all_sensors_{metric.lower()}.png")
     
     return fig 
+
+
+def plot_predictions(
+    df: pd.DataFrame, 
+    prediction: Dict[str, float], 
+    sensor_id: str,
+    next_timestamp: pd.Timestamp,
+    save_path: Optional[str] = None,
+    figsize: Tuple[int, int] = (15, 10)
+) -> Optional[plt.Figure]:
+    """
+    Plot historical data and predicted values for the next 15-minute tick.
+    
+    Args:
+        df (pd.DataFrame): Historical data with 'Timestamp' and sensor columns
+        prediction (Dict[str, float]): Dictionary with predictions for each feature
+        sensor_id (str): The sensor ID
+        next_timestamp (pd.Timestamp): Timestamp for the predicted values
+        save_path (str, optional): Path to save the figure
+        figsize (tuple): Figure size as (width, height)
+    
+    Returns:
+        plt.Figure or None: The matplotlib figure object, or None if plotting failed
+    """
+    # Standardize sensor_id
+    sensor_id = str(sensor_id)
+    
+    # Define column names
+    flow_col = f'{sensor_id}_Flow'
+    pressure_1_col = f'{sensor_id}_Pressure_1'
+    pressure_2_col = f'{sensor_id}_Pressure_2'
+    timestamp_col = 'Timestamp'
+    
+    # Validate required data
+    required_cols = [timestamp_col]
+    metrics_to_plot = []
+    
+    if flow_col in df.columns and 'Flow' in prediction:
+        required_cols.append(flow_col)
+        metrics_to_plot.append(('Flow', flow_col, 'blue'))
+    
+    if pressure_1_col in df.columns and 'Pressure_1' in prediction:
+        required_cols.append(pressure_1_col)
+        metrics_to_plot.append(('Pressure_1', pressure_1_col, 'green'))
+    
+    if pressure_2_col in df.columns and 'Pressure_2' in prediction:
+        required_cols.append(pressure_2_col)
+        metrics_to_plot.append(('Pressure_2', pressure_2_col, 'red'))
+    
+    # Check if we have data to plot
+    if not metrics_to_plot:
+        print(f"Error: No metrics available to plot for sensor {sensor_id}")
+        return None
+    
+    # Convert timestamp to datetime if needed
+    if not pd.api.types.is_datetime64_any_dtype(df[timestamp_col]):
+        df = df.copy()
+        df[timestamp_col] = pd.to_datetime(df[timestamp_col])
+    
+    # Create figure
+    fig = plt.figure(figsize=figsize)
+    
+    # Plot each metric
+    for i, (metric_name, col_name, color) in enumerate(metrics_to_plot, 1):
+        ax = plt.subplot(len(metrics_to_plot), 1, i)
+        
+        # Plot historical data
+        ax.plot(df[timestamp_col], df[col_name], label=f'Historical {metric_name}', color=color, alpha=0.7)
+        
+        # Create predicted point - use only last 24 hours of data for better visualization
+        last_24h = df[df[timestamp_col] >= df[timestamp_col].max() - pd.Timedelta(hours=24)]
+        
+        if not last_24h.empty:
+            # Plot predicted value
+            pred_value = prediction[metric_name]
+            ax.scatter([next_timestamp], [pred_value], color='red', s=100, 
+                      label=f'Predicted {metric_name}: {pred_value:.2f}')
+            
+            # Add vertical line at current time
+            ax.axvline(x=df[timestamp_col].max(), color='black', linestyle='--', alpha=0.5, 
+                      label='Current Time')
+            
+            # Set reasonable limits based on recent data
+            y_min = min(last_24h[col_name].min() * 0.9, pred_value * 0.9)
+            y_max = max(last_24h[col_name].max() * 1.1, pred_value * 1.1)
+            ax.set_ylim(y_min, y_max)
+            
+            # Zoom in to the relevant time range
+            ax.set_xlim(last_24h[timestamp_col].min(), next_timestamp + pd.Timedelta(minutes=15))
+        
+        # Add labels and grid
+        ax.set_title(f'{metric_name} Prediction for Sensor {sensor_id}')
+        ax.set_xlabel('Time')
+        ax.set_ylabel(metric_name)
+        ax.grid(True, linestyle='--', alpha=0.6)
+        ax.legend(loc='best')
+    
+    # Adjust layout
+    plt.tight_layout()
+    
+    # Save the figure if save_path is provided
+    if save_path:
+        os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
+        plt.savefig(save_path)
+        print(f"Prediction visualization saved to {save_path}")
+    
+    return fig 
