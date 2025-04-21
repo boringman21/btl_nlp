@@ -4,12 +4,12 @@
 
 ## Executive Summary
 
-This analysis processed data from 9 sensors and detected 70966 potential leak events.
+This analysis processed data from 9 sensors and detected 70967 potential leak events.
 
 ### Key Findings
 
 #### Leak Detection
-- Total potential leak events: 70966
+- Total potential leak events: 70967
 - Sensor 8401210607558: 13126 potential leak events
 - Sensor 840786560116: 10566 potential leak events
 - Sensor 841210607378: 12669 potential leak events
@@ -17,7 +17,7 @@ This analysis processed data from 9 sensors and detected 70966 potential leak ev
 - Sensor 841210802047: 5 potential leak events
 - Sensor 841210802048: 10394 potential leak events
 - Sensor 841211914190: 7302 potential leak events
-- Sensor 841212383325: 6459 potential leak events
+- Sensor 841212383325: 6460 potential leak events
 
 #### Water Consumption Patterns
 - Sensor 8401210607558:
@@ -114,27 +114,27 @@ This analysis processed data from 9 sensors and detected 70966 potential leak ev
 
 This analysis identifies potential leak events by detecting sudden changes in pressure differences.
 
-![Sample leak detection image](../analysis_results/leak_detection/sensor_ID_plot.png)
+![Sample leak detection image](..\analysis_results/leak_detection/sensor_ID_plot.png)
 
 ### 2. Water Consumption Pattern Analysis
 
 This analysis examines patterns in water usage over time to identify peak usage periods and trends.
 
-![Sample consumption pattern image](../analysis_results/consumption_patterns/sensor_ID_patterns.png)
+![Sample consumption pattern image](..\analysis_results/consumption_patterns/sensor_ID_patterns.png)
 
 ### 3. Early Warning System Analysis
 
 This analysis detects early warning signs that may indicate potential leaks before they become severe.
 
-![Sample early warning image](../analysis_results/early_warning/sensor_ID_early_warning.png)
+![Sample early warning image](..\analysis_results/early_warning/sensor_ID_early_warning.png)
 
 ### 4. Anomaly Detection and Prediction
 
 This analysis identifies unusual patterns in the data that deviate from normal behavior.
 
-![Sample anomaly detection image](../analysis_results/anomaly_detection/sensor_ID_anomalies.png)
+![Sample anomaly detection image](..\analysis_results/anomaly_detection/sensor_ID_anomalies.png)
 
-![Sample Fourier analysis image](../analysis_results/anomaly_detection/ID/ID_Flow_fourier.png)
+![Sample Fourier analysis image](..\analysis_results/anomaly_detection/ID/ID_Flow_fourier.png)
 
 ## Recommendations
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Visualization module for water leakage priority applications.
 Provides interactive visualizations and dashboards for analysis results.

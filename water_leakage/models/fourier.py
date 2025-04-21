@@ -1,4 +1,4 @@
-"""
+﻿"""
 Fourier analysis functionality for the leak detection system.
 """
 
@@ -14,7 +14,7 @@ def fourier_approximation(t: np.ndarray, y: np.ndarray, num_terms: int = 10) -> 
     Computes Fourier approximation of y(t) using num_terms terms.
     
     Args:
-        t (np.ndarray): Time values (normalized to 0-2π)
+        t (np.ndarray): Time values (normalized to 0-2Ï€)
         y (np.ndarray): Signal values
         num_terms (int): Number of terms in the Fourier series
         
@@ -62,7 +62,7 @@ def fourier_approximation(t: np.ndarray, y: np.ndarray, num_terms: int = 10) -> 
 
 def normalize_time(timestamps: Union[pd.Series, np.ndarray]) -> np.ndarray:
     """
-    Normalize timestamps to range [0, 2π] for Fourier analysis.
+    Normalize timestamps to range [0, 2Ï€] for Fourier analysis.
     
     Args:
         timestamps (pd.Series or np.ndarray): Timestamps to normalize
@@ -86,7 +86,7 @@ def normalize_time(timestamps: Union[pd.Series, np.ndarray]) -> np.ndarray:
     else:
         t_numeric = timestamps
     
-    # Normalize to [0, 2π]
+    # Normalize to [0, 2Ï€]
     if len(t_numeric) > 1:
         t_min, t_max = np.min(t_numeric), np.max(t_numeric)
         if t_max > t_min:  # Avoid division by zero
@@ -146,7 +146,7 @@ def plot_fourier_approximation(
         folder_path = None
     
     try:
-        # Normalize time to [0, 2π]
+        # Normalize time to [0, 2Ï€]
         t_normalized = normalize_time(timestamps)
         
         # Clean NaN values
@@ -166,7 +166,7 @@ def plot_fourier_approximation(
         plt.plot(t_clean, values_clean, label=f'{label} (original)', color=color, alpha=0.6)
         plt.plot(t_clean, approx, label=f'{label} (Fourier, {num_terms} terms)', color='black', linestyle='--')
         plt.title(f'{label} with Fourier Approximation (Sensor {sensor_id})')
-        plt.xlabel('Normalized Time (0 to 2π)')
+        plt.xlabel('Normalized Time (0 to 2Ï€)')
         plt.ylabel(label)
         plt.grid(True)
         plt.legend()

@@ -1,126 +1,299 @@
+﻿#!/usr/bin/env python3
 """
-Data visualization utilities for the leak detection system.
+Visualization utilities for water leakage data.
 """
 
 import os
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
 from typing import Dict, List, Optional, Tuple, Union
+from datetime import datetime, timedelta
+import matplotlib.dates as mdates
 
+# Set style for plots
+sns.set_style("whitegrid")
+plt.rcParams['figure.figsize'] = (12, 8)
+plt.rcParams['font.size'] = 12
 
-def _prepare_save_directory(save_dir: Optional[str], sensor_id: str) -> Optional[str]:
+def plot_single_metric(df, sensor_id, metric, save_dir=None):
     """
-    Create and return directory path for saving plots.
+    Plot a single metric for a given sensor.
     
     Args:
-        save_dir (str, optional): Base directory to save plots
-        sensor_id (str): ID of the sensor
-        
-    Returns:
-        str or None: Full path to save directory, or None if save_dir is None
-    """
-    if save_dir is None:
-        return None
-        
-    # Create sensor-specific directory
-    folder_path = os.path.join(save_dir, str(sensor_id))
-    os.makedirs(folder_path, exist_ok=True)
-    return folder_path
-
-
-def _save_plot(fig: plt.Figure, folder_path: Optional[str], filename: str) -> None:
-    """
-    Save a matplotlib figure to a file if folder_path is provided.
-    
-    Args:
-        fig (plt.Figure): Figure to save
-        folder_path (str, optional): Path to save the figure
-        filename (str): Filename for the saved figure
-    """
-    if folder_path:
-        save_path = os.path.join(folder_path, filename)
-        fig.savefig(save_path)
-        print(f"Plot saved to {save_path}")
-
-
-def _validate_data(df: pd.DataFrame, sensor_id: str, required_cols: List[str]) -> Tuple[bool, List[str]]:
-    """
-    Validate that required columns exist in DataFrame.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to check
+        df (pd.DataFrame): DataFrame with sensor data
         sensor_id (str): Sensor ID
-        required_cols (List[str]): List of required column names
+        metric (str): Metric to plot (Flow, Pressure_1, Pressure_2, Pressure_Diff)
+        save_dir (str, optional): Directory to save the plot
         
     Returns:
-        Tuple[bool, List[str]]: (is_valid, missing_columns)
+        matplotlib.figure.Figure: Figure object
     """
-    if df is None or df.empty:
-        return False, ["DataFrame is empty"]
-        
-    # Check for timestamp column
-    if 'Timestamp' not in df.columns:
-        return False, ["Missing 'Timestamp' column"]
-    
-    # Check for required sensor columns
-    missing_cols = [col for col in required_cols if col not in df.columns]
-    return len(missing_cols) == 0, missing_cols
-
-
-def plot_flow_and_pressure(
-    df: pd.DataFrame, 
-    sensor_id: str, 
-    save_dir: Optional[str] = None,
-    figsize: Tuple[int, int] = (12, 10)
-) -> Optional[plt.Figure]:
-    """
-    Plots flow and pressure data from the given DataFrame for the specified sensor ID.
-    Optionally saves the plots to the specified directory.
-    
-    Args:
-        df (pd.DataFrame): DataFrame containing sensor data
-        sensor_id (str): The sensor ID to plot
-        save_dir (str, optional): Directory to save the plots. If None, plots are only displayed.
-        figsize (tuple): Figure size as (width, height)
-    
-    Returns:
-        plt.Figure or None: The matplotlib figure object, or None if plotting failed
-    """
-    # Standardize sensor_id type
     sensor_id = str(sensor_id)
     
-    # Define column names
-    flow_col = f'{sensor_id}_Flow'
-    pressure_1_col = f'{sensor_id}_Pressure_1'
-    pressure_2_col = f'{sensor_id}_Pressure_2'
-    pressure_diff_col = f'{sensor_id}_Pressure_Diff'
-    timestamp_col = 'Timestamp'
+    # Check if column exists
+    col = f"{sensor_id}_{metric}"
     
-    # Validate required data
-    required_cols = [col for col in [flow_col, pressure_1_col, pressure_2_col] if col in df.columns]
-    is_valid, missing_cols = _validate_data(df, sensor_id, [timestamp_col] + required_cols)
-    
-    if not is_valid:
-        print(f"Error: Missing columns in DataFrame: {', '.join(missing_cols)}")
+    if col not in df.columns:
+        print(f"No {metric} data available for sensor {sensor_id}")
         return None
     
-    # Prepare directory for saving
-    folder_path = _prepare_save_directory(save_dir, sensor_id)
-
-    # Convert Timestamp to datetime if not already
-    if not pd.api.types.is_datetime64_any_dtype(df[timestamp_col]):
-        try:
-            df = df.copy()
-            df[timestamp_col] = pd.to_datetime(df[timestamp_col])
-        except Exception as e:
-            print(f"Warning: Could not convert timestamps to datetime format: {str(e)}")
-
-    # Initialize the plot
-    fig = plt.figure(figsize=figsize)
+    # Create figure
+    fig, ax = plt.subplots(figsize=(12, 8))
     
-    # Find which metrics are available
+    # Plot metric
+    ax.plot(df['Timestamp'], df[col], label=metric, color='blue')
+    
+    # Add labels and title
+    ax.set_xlabel('Time')
+    ax.set_ylabel(f'{metric} Value')
+    ax.set_title(f'{metric} for Sensor {sensor_id}')
+    
+    # Add grid and legend
+    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.legend()
+    
+    # Save figure if save_dir is provided
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, f"{metric}.png")
+        plt.savefig(save_path)
+        print(f"{metric} plot saved to: {save_path}")
+    
+    return fig
+
+def plot_all_metrics(df, sensor_id, save_dir=None):
+    """
+    Plot all available metrics (flow, pressure_1, pressure_2, pressure_diff) for a given sensor.
+    
+    Args:
+        df (pd.DataFrame): DataFrame with sensor data
+        sensor_id (str): Sensor ID
+        save_dir (str, optional): Directory to save the plot
+        
+    Returns:
+        matplotlib.figure.Figure: Figure object
+        bool: Whether sensor has two pressure metrics or only one
+    """
+    sensor_id = str(sensor_id)
+    
+    # Check if required columns exist
+    flow_col = f"{sensor_id}_Flow"
+    pressure_1_col = f"{sensor_id}_Pressure_1"
+    pressure_2_col = f"{sensor_id}_Pressure_2"
+    pressure_diff_col = f"{sensor_id}_Pressure_Diff"
+    
+    columns_to_plot = []
+    if flow_col in df.columns:
+        columns_to_plot.append((flow_col, 'Flow', 'blue'))
+    if pressure_1_col in df.columns:
+        columns_to_plot.append((pressure_1_col, 'Pressure 1', 'green'))
+    if pressure_2_col in df.columns:
+        columns_to_plot.append((pressure_2_col, 'Pressure 2', 'red'))
+    if pressure_diff_col in df.columns:
+        columns_to_plot.append((pressure_diff_col, 'Pressure Difference', 'purple'))
+    
+    has_two_pressure = pressure_1_col in df.columns and pressure_2_col in df.columns
+    
+    if not columns_to_plot:
+        print(f"No data available for sensor {sensor_id}")
+        return None, False
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    # Plot each column
+    for col, label, color in columns_to_plot:
+        ax.plot(df['Timestamp'], df[col], label=label, color=color)
+    
+    # Add labels and title
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Value')
+    ax.set_title(f'All Metrics for Sensor {sensor_id}')
+    
+    # Add grid and legend
+    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.legend()
+    
+    # Save figure if save_dir is provided
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, f"all_metrics.png")
+        plt.savefig(save_path)
+        print(f"All metrics plot saved to: {save_path}")
+    
+    return fig, has_two_pressure
+
+def plot_flow_and_pressure(df, sensor_id, save_dir=None):
+    """
+    Plot flow and pressure data for a given sensor.
+    
+    Args:
+        df (pd.DataFrame): DataFrame with sensor data
+        sensor_id (str): Sensor ID
+        save_dir (str, optional): Directory to save the plot
+        
+    Returns:
+        matplotlib.figure.Figure: Figure object
+    """
+    sensor_id = str(sensor_id)
+    
+    # Check if required columns exist
+    flow_col = f"{sensor_id}_Flow"
+    pressure_1_col = f"{sensor_id}_Pressure_1"
+    pressure_2_col = f"{sensor_id}_Pressure_2"
+    pressure_diff_col = f"{sensor_id}_Pressure_Diff"
+    
+    columns_to_plot = []
+    if flow_col in df.columns:
+        columns_to_plot.append((flow_col, 'Flow', 'blue'))
+    if pressure_1_col in df.columns:
+        columns_to_plot.append((pressure_1_col, 'Pressure 1', 'green'))
+    if pressure_2_col in df.columns:
+        columns_to_plot.append((pressure_2_col, 'Pressure 2', 'red'))
+    if pressure_diff_col in df.columns:
+        columns_to_plot.append((pressure_diff_col, 'Pressure Difference', 'purple'))
+    
+    if not columns_to_plot:
+        print(f"No data available for sensor {sensor_id}")
+        return None
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    # Plot each column
+    for col, label, color in columns_to_plot:
+        ax.plot(df['Timestamp'], df[col], label=label, color=color)
+    
+    # Add labels and title
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Value')
+    ax.set_title(f'Flow and Pressure for Sensor {sensor_id}')
+    
+    # Add grid and legend
+    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.legend()
+    
+    # Save figure if save_dir is provided
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, f"{sensor_id}_flow_pressure.png")
+        plt.savefig(save_path)
+        print(f"Plot saved to: {save_path}")
+    
+    return fig
+
+def plot_correlation(df, sensor_id, save_dir=None):
+    """
+    Plot correlation matrix for a given sensor.
+    
+    Args:
+        df (pd.DataFrame): DataFrame with sensor data
+        sensor_id (str): Sensor ID
+        save_dir (str, optional): Directory to save the plot
+        
+    Returns:
+        matplotlib.figure.Figure: Figure object
+    """
+    sensor_id = str(sensor_id)
+    
+    # Get columns for this sensor
+    sensor_cols = [col for col in df.columns if col.startswith(f"{sensor_id}_")]
+    
+    if not sensor_cols:
+        print(f"No data available for sensor {sensor_id}")
+        return None
+    
+    # Create correlation matrix
+    corr_df = df[sensor_cols].corr()
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    # Plot heatmap
+    sns.heatmap(corr_df, annot=True, cmap='coolwarm', ax=ax)
+    
+    # Add title
+    ax.set_title(f'Correlation Matrix for Sensor {sensor_id}')
+    
+    # Save figure if save_dir is provided
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, f"correlation.png")
+        plt.savefig(save_path)
+        print(f"Correlation matrix saved to: {save_path}")
+    
+    return fig
+
+def plot_all_sensors(df, metric='Flow', save_dir=None):
+    """
+    Plot same metric for all sensors.
+    
+    Args:
+        df (pd.DataFrame): DataFrame with sensor data
+        metric (str): Metric to plot (Flow, Pressure_1, Pressure_2, Pressure_Diff)
+        save_dir (str, optional): Directory to save the plot
+        
+    Returns:
+        matplotlib.figure.Figure: Figure object
+    """
+    # Find all columns with the specified metric
+    metric_cols = [col for col in df.columns if col.endswith(f"_{metric}")]
+    
+    if not metric_cols:
+        print(f"No {metric} data available for any sensor")
+        return None
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    # Plot each sensor
+    for col in metric_cols:
+        sensor_id = col.split('_')[0]
+        ax.plot(df['Timestamp'], df[col], label=f"Sensor {sensor_id}")
+    
+    # Add labels and title
+    ax.set_xlabel('Time')
+    ax.set_ylabel(f'{metric} Value')
+    ax.set_title(f'{metric} for All Sensors')
+    
+    # Add grid and legend
+    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.legend()
+    
+    # Save figure if save_dir is provided
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, f"all_sensors_{metric}.png")
+        plt.savefig(save_path)
+        print(f"Plot saved to: {save_path}")
+    
+    return fig
+
+def plot_metrics_in_subplots(df, sensor_id, save_dir=None):
+    """
+    Plot all available metrics (flow, pressure_1, pressure_2, pressure_diff) for a given sensor
+    in separate subplots of a single figure.
+    
+    Args:
+        df (pd.DataFrame): DataFrame with sensor data
+        sensor_id (str): Sensor ID
+        save_dir (str, optional): Directory to save the plot
+        
+    Returns:
+        matplotlib.figure.Figure: Figure object
+        bool: Whether sensor has two pressure metrics or only one
+    """
+    sensor_id = str(sensor_id)
+    
+    # Check if required columns exist
+    flow_col = f"{sensor_id}_Flow"
+    pressure_1_col = f"{sensor_id}_Pressure_1"
+    pressure_2_col = f"{sensor_id}_Pressure_2"
+    pressure_diff_col = f"{sensor_id}_Pressure_Diff"
+    
+    # Identify which metrics are available
     available_metrics = []
     if flow_col in df.columns:
         available_metrics.append(('Flow', flow_col, 'blue'))
@@ -130,273 +303,180 @@ def plot_flow_and_pressure(
         available_metrics.append(('Pressure_2', pressure_2_col, 'red'))
     if pressure_diff_col in df.columns:
         available_metrics.append(('Pressure_Diff', pressure_diff_col, 'purple'))
-    elif pressure_1_col in df.columns and pressure_2_col in df.columns:
-        # Calculate pressure difference on the fly if not in DataFrame
-        available_metrics.append(('Pressure_Diff', None, 'purple'))
     
-    # Check if we have any metrics to plot
+    has_two_pressure = pressure_1_col in df.columns and pressure_2_col in df.columns
+    
     if not available_metrics:
-        print(f"Error: No metrics available to plot for sensor {sensor_id}")
-        plt.close(fig)
-        return None
+        print(f"No data available for sensor {sensor_id}")
+        return None, False
     
-    # Plot all available metrics
-    for i, (metric_name, col_name, color) in enumerate(available_metrics, 1):
-        ax = plt.subplot(len(available_metrics), 1, i)
+    # Create figure with subplots - one for each metric
+    num_metrics = len(available_metrics)
+    fig, axes = plt.subplots(num_metrics, 1, figsize=(12, 3*num_metrics), sharex=True)
+    
+    # If only one metric, axes will not be an array
+    if num_metrics == 1:
+        axes = [axes]
+    
+    # Plot each metric in a separate subplot
+    for i, (metric_name, col, color) in enumerate(available_metrics):
+        axes[i].plot(df['Timestamp'], df[col], color=color)
         
-        # Handle pressure difference special case
-        if metric_name == 'Pressure_Diff' and col_name is None:
-            # Calculate on the fly
-            y_values = df[pressure_2_col] - df[pressure_1_col]
-            title = f'Pressure Difference (Pressure_2 - Pressure_1) vs Time (Sensor {sensor_id})'
-        else:
-            y_values = df[col_name]
-            title = f'{metric_name} vs Time (Sensor {sensor_id})'
-        
-        # Plot the data
-        ax.plot(df[timestamp_col], y_values, label=metric_name, color=color)
-        ax.set_title(title)
-        ax.set_xlabel('Timestamp')
-        ax.set_ylabel(metric_name)
-        ax.grid(True)
-        ax.legend()
-
-    # Adjust layout and save if folder_path is specified
-    plt.tight_layout()
-    if folder_path:
-        _save_plot(fig, folder_path, f"sensor_{sensor_id}_plot.png")
+        # Add labels and title for each subplot
+        axes[i].set_ylabel(metric_name)
+        axes[i].set_title(f'{metric_name} for Sensor {sensor_id}')
+        axes[i].grid(True, linestyle='--', alpha=0.7)
     
-    return fig
+    # Add common x-label
+    axes[-1].set_xlabel('Time')
+    
+    # Format dates on x-axis if needed
+    if pd.api.types.is_datetime64_any_dtype(df['Timestamp']):
+        fig.autofmt_xdate()
+    
+    # Add overall title
+    plt.suptitle(f'All Metrics for Sensor {sensor_id}', fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.97])  # Adjust for the suptitle
+    
+    # Save figure if save_dir is provided
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, f"metrics_combined.png")
+        plt.savefig(save_path)
+        print(f"Combined metrics plot saved to: {save_path}")
+    
+    return fig, has_two_pressure
 
-
-def plot_correlation(
-    df: pd.DataFrame, 
-    sensor_id: str, 
-    save_dir: Optional[str] = None,
-    figsize: Tuple[int, int] = (8, 6)
-) -> Optional[plt.Figure]:
+def create_sensor_visualizations(df, sensor_ids, output_dir, separate_metrics=False):
     """
-    Plots the correlation matrix of flow and pressure data for the specified sensor ID.
-    
-    Args:
-        df (pd.DataFrame): DataFrame containing sensor data
-        sensor_id (str): The sensor ID to analyze
-        save_dir (str, optional): Directory to save the plot. If None, plot is only displayed.
-        figsize (tuple): Figure size as (width, height)
-    
-    Returns:
-        plt.Figure or None: The matplotlib figure object, or None if plotting failed
-    """
-    # Standardize sensor_id type
-    sensor_id = str(sensor_id)
-    
-    # Define column names
-    flow_col = f'{sensor_id}_Flow'
-    pressure_1_col = f'{sensor_id}_Pressure_1'
-    pressure_2_col = f'{sensor_id}_Pressure_2'
-    pressure_diff_col = f'{sensor_id}_Pressure_Diff'
-    
-    # Validate required data
-    required_cols = [col for col in [flow_col, pressure_1_col, pressure_2_col] if col in df.columns]
-    is_valid, missing_cols = _validate_data(df, sensor_id, required_cols)
-    
-    if not is_valid or len(required_cols) < 2:
-        print(f"Error: Insufficient data for correlation analysis. Need at least 2 metrics.")
-        return None
-    
-    # Prepare directory for saving
-    folder_path = _prepare_save_directory(save_dir, sensor_id)
-
-    # Extract relevant columns for correlation
-    columns_to_use = [col for col in [flow_col, pressure_1_col, pressure_2_col, pressure_diff_col] 
-                     if col in df.columns]
-    
-    # Select only numeric columns with valid data
-    corr_df = df[columns_to_use].select_dtypes(include=['number'])
-    
-    # Check if we have enough data for correlation
-    if corr_df.shape[1] < 2:
-        print(f"Error: Need at least 2 numeric columns for correlation matrix.")
-        return None
-    
-    # Calculate correlation matrix
-    try:
-        corr_matrix = corr_df.corr()
-    except Exception as e:
-        print(f"Error calculating correlation matrix: {str(e)}")
-        return None
-
-    # Plot the correlation matrix as a heatmap
-    fig = plt.figure(figsize=figsize)
-    sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", fmt=".2f", square=True)
-    plt.title(f'Correlation Matrix (Sensor {sensor_id})')
-
-    # Save the plot if folder_path is specified
-    if folder_path:
-        _save_plot(fig, folder_path, f"sensor_{sensor_id}_correlation.png")
-
-    return fig
-
-
-def plot_all_sensors(
-    df: pd.DataFrame, 
-    metric: str = 'Flow', 
-    save_dir: Optional[str] = None,
-    figsize: Tuple[int, int] = (15, 10),
-    max_sensors: int = 10
-) -> Optional[plt.Figure]:
-    """
-    Plot the same metric for multiple sensors on a single graph.
+    Create visualizations for each sensor with the requested directory structure.
     
     Args:
         df (pd.DataFrame): DataFrame with sensor data
-        metric (str): Metric to plot ('Flow', 'Pressure_1', 'Pressure_2', or 'Pressure_Diff')
-        save_dir (str, optional): Directory to save the plot
-        figsize (tuple): Figure size
-        max_sensors (int): Maximum number of sensors to include in one plot
+        sensor_ids (list): List of sensor IDs to visualize
+        output_dir (str): Base output directory
+        separate_metrics (bool): If True, plot each metric separately
+    """
+    # Create main visualization directory
+    viz_dir = os.path.join(output_dir, "visualization")
+    os.makedirs(viz_dir, exist_ok=True)
+    
+    # Create directories for different pressure types
+    one_pressure_dir = os.path.join(viz_dir, "1_pressure")
+    two_pressure_dir = os.path.join(viz_dir, "2_pressure")
+    os.makedirs(one_pressure_dir, exist_ok=True)
+    os.makedirs(two_pressure_dir, exist_ok=True)
+    
+    # Process each sensor
+    for sensor_id in sensor_ids:
+        # Check if this sensor has two pressure sensors or just one
+        pressure_1_col = f"{sensor_id}_Pressure_1"
+        pressure_2_col = f"{sensor_id}_Pressure_2"
         
-    Returns:
-        plt.Figure or None: The matplotlib figure object, or None if plotting failed
-    """
-    if df is None or df.empty or 'Timestamp' not in df.columns:
-        print("Error: Invalid DataFrame or missing Timestamp column")
-        return None
-    
-    # Find all columns for the specified metric
-    cols = [col for col in df.columns if col.endswith(f'_{metric}')]
-    
-    if not cols:
-        print(f"Error: No columns found for metric '{metric}'")
-        return None
-    
-    # Limit the number of sensors to avoid overcrowding
-    if len(cols) > max_sensors:
-        print(f"Warning: Limiting plot to {max_sensors} sensors (out of {len(cols)} available)")
-        cols = cols[:max_sensors]
-    
-    # Create plot
-    fig, ax = plt.subplots(figsize=figsize)
-    
-    for col in cols:
-        sensor_id = col.split('_')[0]
-        ax.plot(df['Timestamp'], df[col], label=f'Sensor {sensor_id}')
-    
-    ax.set_title(f'{metric} for Multiple Sensors')
-    ax.set_xlabel('Timestamp')
-    ax.set_ylabel(metric)
-    ax.grid(True)
-    ax.legend()
-    
-    # Save the plot if save_dir is specified
-    if save_dir:
-        os.makedirs(save_dir, exist_ok=True)
-        _save_plot(fig, save_dir, f"all_sensors_{metric.lower()}.png")
-    
-    return fig 
+        has_two_pressure = pressure_1_col in df.columns and pressure_2_col in df.columns
+        
+        # Create sensor directory in the appropriate parent directory
+        if has_two_pressure:
+            sensor_dir = os.path.join(two_pressure_dir, sensor_id)
+        else:
+            sensor_dir = os.path.join(one_pressure_dir, sensor_id)
+        
+        os.makedirs(sensor_dir, exist_ok=True)
+        
+        if separate_metrics:
+            # Create separate plots for each metric
+            metrics = ['Flow', 'Pressure_1', 'Pressure_2', 'Pressure_Diff']
+            for metric in metrics:
+                fig = plot_single_metric(df, sensor_id, metric, save_dir=sensor_dir)
+                plt.close(fig) if fig else None
+                
+            # Also create combined plot with subplots
+            fig, _ = plot_metrics_in_subplots(df, sensor_id, save_dir=sensor_dir)
+            plt.close(fig) if fig else None
+        else:
+            # Create all metrics visualization
+            fig, _ = plot_all_metrics(df, sensor_id, save_dir=sensor_dir)
+            plt.close(fig) if fig else None
+        
+        # Create correlation matrix
+        fig = plot_correlation(df, sensor_id, save_dir=sensor_dir)
+        plt.close(fig) if fig else None
+        
+    print(f"Sensor visualizations created in {viz_dir}")
 
-
-def plot_predictions(
-    df: pd.DataFrame, 
-    prediction: Dict[str, float], 
-    sensor_id: str,
-    next_timestamp: pd.Timestamp,
-    save_path: Optional[str] = None,
-    figsize: Tuple[int, int] = (15, 10)
-) -> Optional[plt.Figure]:
+def plot_predictions(df, prediction, sensor_id, next_timestamp, save_path=None):
     """
-    Plot historical data and predicted values for the next 15-minute tick.
+    Plot historical data with prediction for the next tick.
     
     Args:
-        df (pd.DataFrame): Historical data with 'Timestamp' and sensor columns
-        prediction (Dict[str, float]): Dictionary with predictions for each feature
-        sensor_id (str): The sensor ID
-        next_timestamp (pd.Timestamp): Timestamp for the predicted values
-        save_path (str, optional): Path to save the figure
-        figsize (tuple): Figure size as (width, height)
-    
+        df (pd.DataFrame): DataFrame with historical data
+        prediction (dict): Dictionary with predicted values
+        sensor_id (str): Sensor ID
+        next_timestamp (datetime): Timestamp for the prediction
+        save_path (str, optional): Path to save the plot
+        
     Returns:
-        plt.Figure or None: The matplotlib figure object, or None if plotting failed
+        matplotlib.figure.Figure: Figure object
     """
-    # Standardize sensor_id
-    sensor_id = str(sensor_id)
+    # Convert timestamp column to datetime if needed
+    if 'Timestamp' in df.columns:
+        df['Timestamp'] = pd.to_datetime(df['Timestamp'])
     
-    # Define column names
-    flow_col = f'{sensor_id}_Flow'
-    pressure_1_col = f'{sensor_id}_Pressure_1'
-    pressure_2_col = f'{sensor_id}_Pressure_2'
-    timestamp_col = 'Timestamp'
+    # Get the last 24 hours of data
+    last_timestamp = df['Timestamp'].max()
+    start_time = last_timestamp - timedelta(hours=24)
+    recent_df = df[df['Timestamp'] >= start_time].copy()
     
-    # Validate required data
-    required_cols = [timestamp_col]
-    metrics_to_plot = []
+    # Create a figure with subplots
+    fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
     
-    if flow_col in df.columns and 'Flow' in prediction:
-        required_cols.append(flow_col)
-        metrics_to_plot.append(('Flow', flow_col, 'blue'))
-    
-    if pressure_1_col in df.columns and 'Pressure_1' in prediction:
-        required_cols.append(pressure_1_col)
-        metrics_to_plot.append(('Pressure_1', pressure_1_col, 'green'))
-    
-    if pressure_2_col in df.columns and 'Pressure_2' in prediction:
-        required_cols.append(pressure_2_col)
-        metrics_to_plot.append(('Pressure_2', pressure_2_col, 'red'))
-    
-    # Check if we have data to plot
-    if not metrics_to_plot:
-        print(f"Error: No metrics available to plot for sensor {sensor_id}")
-        return None
-    
-    # Convert timestamp to datetime if needed
-    if not pd.api.types.is_datetime64_any_dtype(df[timestamp_col]):
-        df = df.copy()
-        df[timestamp_col] = pd.to_datetime(df[timestamp_col])
-    
-    # Create figure
-    fig = plt.figure(figsize=figsize)
+    metrics = ['Flow', 'Pressure_1', 'Pressure_2']
+    colors = ['#3388ff', '#ff5555', '#55aa55']
     
     # Plot each metric
-    for i, (metric_name, col_name, color) in enumerate(metrics_to_plot, 1):
-        ax = plt.subplot(len(metrics_to_plot), 1, i)
-        
-        # Plot historical data
-        ax.plot(df[timestamp_col], df[col_name], label=f'Historical {metric_name}', color=color, alpha=0.7)
-        
-        # Create predicted point - use only last 24 hours of data for better visualization
-        last_24h = df[df[timestamp_col] >= df[timestamp_col].max() - pd.Timedelta(hours=24)]
-        
-        if not last_24h.empty:
-            # Plot predicted value
-            pred_value = prediction[metric_name]
-            ax.scatter([next_timestamp], [pred_value], color='red', s=100, 
-                      label=f'Predicted {metric_name}: {pred_value:.2f}')
+    for i, metric in enumerate(metrics):
+        col = f"{sensor_id}_{metric}"
+        if col in df.columns:
+            # Plot historical data
+            axes[i].plot(recent_df['Timestamp'], recent_df[col], 
+                        label=f'Historical {metric}', color=colors[i])
             
-            # Add vertical line at current time
-            ax.axvline(x=df[timestamp_col].max(), color='black', linestyle='--', alpha=0.5, 
-                      label='Current Time')
+            # Add the prediction point
+            if metric in prediction:
+                pred_value = prediction[metric]
+                axes[i].scatter([next_timestamp], [pred_value], 
+                              label=f'Predicted {metric}', 
+                              color='red', s=100, zorder=5)
+                
+                # Add text label
+                axes[i].text(next_timestamp, pred_value, 
+                           f'{pred_value:.2f}', 
+                           color='red', fontweight='bold',
+                           ha='left', va='bottom')
             
-            # Set reasonable limits based on recent data
-            y_min = min(last_24h[col_name].min() * 0.9, pred_value * 0.9)
-            y_max = max(last_24h[col_name].max() * 1.1, pred_value * 1.1)
-            ax.set_ylim(y_min, y_max)
-            
-            # Zoom in to the relevant time range
-            ax.set_xlim(last_24h[timestamp_col].min(), next_timestamp + pd.Timedelta(minutes=15))
-        
-        # Add labels and grid
-        ax.set_title(f'{metric_name} Prediction for Sensor {sensor_id}')
-        ax.set_xlabel('Time')
-        ax.set_ylabel(metric_name)
-        ax.grid(True, linestyle='--', alpha=0.6)
-        ax.legend(loc='best')
+            axes[i].set_title(f'{metric} for Sensor {sensor_id}')
+            axes[i].set_ylabel(metric)
+            axes[i].legend(loc='upper left')
+            axes[i].grid(True, linestyle='--', alpha=0.7)
+    
+    # Format x-axis
+    axes[-1].set_xlabel('Time')
+    for ax in axes:
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M'))
+        plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
+    
+    # Add vertical line for current time
+    for ax in axes:
+        ax.axvline(x=last_timestamp, color='gray', linestyle='--', alpha=0.7)
+        ax.text(last_timestamp, ax.get_ylim()[1]*0.9, 'Current', 
+               color='gray', rotation=90, ha='right')
     
     # Adjust layout
     plt.tight_layout()
     
-    # Save the figure if save_path is provided
+    # Save figure if path is provided
     if save_path:
-        os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
-        plt.savefig(save_path)
-        print(f"Prediction visualization saved to {save_path}")
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"Prediction plot saved to: {save_path}")
     
-    return fig 
+    return fig

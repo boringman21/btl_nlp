@@ -1,4 +1,4 @@
-"""
+﻿"""
 Data loading functionality for leak detection system.
 """
 

@@ -1,0 +1,21 @@
+{
+  "processed_time": "2025-04-22T02:06:31.750370",
+  "data_path": "./LeakDataset/Logger_Data_2024_Bau_Bang-2",
+  "sensors_summary": {
+    "total_flow_sensors": 187,
+    "sensors_with_both_pressures": 9,
+    "sensors_with_one_pressure": 178,
+    "processed_sensors": 1
+  },
+  "anomaly_summary": {
+    "total_anomalies": 0,
+    "sensors_with_anomalies": 0
+  },
+  "sensor_details": {
+    "841210607378": {
+      "has_both_pressures": true,
+      "prediction": {},
+      "anomalies": {}
+    }
+  }
+}

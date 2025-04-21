@@ -1,4 +1,4 @@
-"""
+﻿"""
 Data transformation functionality for leak detection system.
 """
 

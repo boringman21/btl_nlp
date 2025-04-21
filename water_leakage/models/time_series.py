@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Time series prediction module for water leakage detection.
 Provides tools for forecasting flow and pressure values.
@@ -14,10 +14,15 @@ import os
 # Create logger
 logger = logging.getLogger(__name__)
 
+# Import sklearn models for fallback
+from sklearn.linear_model import Ridge
+from sklearn.ensemble import RandomForestRegressor
+
 class TimeSeriesPredictor:
     """
     Time series predictor for water leakage data.
     Uses LSTM models to predict next time steps based on historical data.
+    Falls back to sklearn models when TensorFlow is not available.
     """
     
     def __init__(self, window_size: int = 24):
@@ -31,6 +36,7 @@ class TimeSeriesPredictor:
         self.scaler = None
         self.model = None
         self._is_fitted = False
+        self.using_fallback = False
     
     def _check_tensorflow(self) -> bool:
         """Check if TensorFlow is available and load it if so."""
@@ -49,7 +55,7 @@ class TimeSeriesPredictor:
             
             return True
         except ImportError:
-            logger.error("TensorFlow not available. Please install TensorFlow to use LSTM functionality.")
+            logger.warning("TensorFlow not available. Using fallback prediction model.")
             return False
     
     def _create_sequences(self, data: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -67,6 +73,21 @@ class TimeSeriesPredictor:
             X.append(data[i:i+self.window_size])
             y.append(data[i+self.window_size])
         return np.array(X), np.array(y)
+    
+    def _create_sequences_for_fallback(self, data: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Create flattened sequences for fallback models (sklearn).
+        
+        Args:
+            data (np.ndarray): Input data array
+            
+        Returns:
+            Tuple of X (flattened input sequences) and y (target values)
+        """
+        X, y = self._create_sequences(data)
+        # Flatten the sequences for sklearn models
+        X_flattened = X.reshape(X.shape[0], -1)
+        return X_flattened, y
     
     def preprocess_data(self, df: pd.DataFrame) -> np.ndarray:
         """
@@ -98,24 +119,27 @@ class TimeSeriesPredictor:
     
     def fit(self, df: pd.DataFrame, epochs: int = 50, batch_size: int = 32, validation_split: float = 0.2) -> Dict[str, Any]:
         """
-        Fit the LSTM model to the time series data.
+        Fit the model to the time series data.
+        Uses LSTM if TensorFlow is available, otherwise falls back to sklearn models.
         
         Args:
             df (pd.DataFrame): Input DataFrame with time series data
-            epochs (int): Number of training epochs
-            batch_size (int): Batch size for training
+            epochs (int): Number of training epochs (only used for LSTM)
+            batch_size (int): Batch size for training (only used for LSTM)
             validation_split (float): Fraction of data to use for validation
             
         Returns:
             Dict containing training history and validation metrics
         """
-        if not self._check_tensorflow():
-            return {"error": "TensorFlow not available"}
-        
         # Preprocess data
         scaled_data = self.preprocess_data(df)
         
-        # Create sequences
+        # Check if TensorFlow is available, if not use fallback model
+        if not self._check_tensorflow():
+            self.using_fallback = True
+            return self._fit_fallback(scaled_data, validation_split)
+        
+        # Create sequences for LSTM
         X, y = self._create_sequences(scaled_data)
         
         if len(X) == 0:
@@ -162,6 +186,49 @@ class TimeSeriesPredictor:
             "predicted": y_pred
         }
     
+    def _fit_fallback(self, scaled_data: np.ndarray, validation_split: float = 0.2) -> Dict[str, Any]:
+        """
+        Fit fallback model (sklearn) when TensorFlow is not available.
+        
+        Args:
+            scaled_data (np.ndarray): Preprocessed data
+            validation_split (float): Fraction of data to use for validation
+            
+        Returns:
+            Dict containing training metrics
+        """
+        # Create sequences for sklearn models (flattened)
+        X_flattened, y = self._create_sequences_for_fallback(scaled_data)
+        
+        if len(X_flattened) == 0:
+            raise ValueError("Not enough data for the specified window size")
+        
+        # Split data
+        split_idx = int((1 - validation_split) * len(X_flattened))
+        X_train, y_train = X_flattened[:split_idx], y[:split_idx]
+        X_test, y_test = X_flattened[split_idx:], y[split_idx:]
+        
+        # Create and train fallback model (RandomForest for better accuracy)
+        self.model = RandomForestRegressor(n_estimators=100, random_state=42)
+        self.model.fit(X_train, y_train)
+        
+        # Evaluate on test set
+        y_pred_scaled = self.model.predict(X_test)
+        y_pred = self.scaler.inverse_transform(y_pred_scaled)
+        actual = self.scaler.inverse_transform(y_test)
+        
+        # Calculate MAE
+        mae = np.mean(np.abs(actual - y_pred))
+        
+        self._is_fitted = True
+        
+        return {
+            "mae": mae,
+            "actual": actual,
+            "predicted": y_pred,
+            "model_type": "fallback_random_forest"
+        }
+    
     def predict_next(self, df: pd.DataFrame) -> np.ndarray:
         """
         Predict the next time step (15 min) based on the last 6 hours (window_size) of data.
@@ -179,21 +246,41 @@ class TimeSeriesPredictor:
             raise ValueError(f"Not enough data. Need at least {self.window_size} records.")
         
         # Take only the last window_size records
-        last_data = df.iloc[-self.window_size:]
+        last_data = df.iloc[-self.window_size:].copy()
+        
+        # Ensure we have the same features as during training
+        if 'hour' not in last_data.columns and last_data.index.dtype.kind == 'M':
+            last_data['hour'] = last_data.index.hour
+        
+        if 'day_of_week' not in last_data.columns and last_data.index.dtype.kind == 'M':
+            last_data['day_of_week'] = last_data.index.dayofweek
         
         # Scale data
         scaled_input = self.scaler.transform(last_data)
         
-        # Reshape for LSTM input
-        input_sequence = scaled_input.reshape(1, self.window_size, -1)
-        
-        # Predict
-        predicted_scaled = self.model.predict(input_sequence)
+        if self.using_fallback:
+            # Reshape for sklearn model (flatten)
+            input_sequence = scaled_input.reshape(1, -1)
+            
+            # Predict
+            predicted_scaled = self.model.predict(input_sequence)
+            
+            # Reshape prediction to match expected format
+            if len(predicted_scaled.shape) == 1:
+                predicted_scaled = predicted_scaled.reshape(1, -1)
+        else:
+            # Reshape for LSTM input
+            input_sequence = scaled_input.reshape(1, self.window_size, -1)
+            
+            # Predict
+            predicted_scaled = self.model.predict(input_sequence)
         
         # Inverse transform
         prediction = self.scaler.inverse_transform(predicted_scaled)[0]
         
-        return prediction
+        # Only return the original features (excluding the time features we added)
+        original_features_count = len(df.columns) 
+        return prediction[:original_features_count]
     
     def save_model(self, path: str) -> None:
         """
@@ -205,16 +292,28 @@ class TimeSeriesPredictor:
         if not self._is_fitted:
             raise ValueError("Model not fitted. Call fit() first.")
         
-        self.model.save(path)
-        
-        # Save scaler with joblib
         try:
             import joblib
+            # Save the scaler
             scaler_path = f"{path}_scaler.pkl"
             joblib.dump(self.scaler, scaler_path)
             logger.info(f"Scaler saved to {scaler_path}")
+            
+            # Save the model
+            if self.using_fallback:
+                # Save sklearn model
+                model_path = f"{path}_fallback.pkl"
+                joblib.dump(self.model, model_path)
+                # Save flag to indicate this is a fallback model
+                with open(f"{path}_type.txt", "w") as f:
+                    f.write("fallback")
+                logger.info(f"Fallback model saved to {model_path}")
+            else:
+                # Save TensorFlow model
+                self.model.save(path)
+                logger.info(f"TensorFlow model saved to {path}")
         except ImportError:
-            logger.warning("joblib not available. Scaler not saved.")
+            logger.warning("joblib not available. Model not saved.")
     
     def load_model(self, model_path: str, scaler_path: str) -> None:
         """
@@ -224,20 +323,36 @@ class TimeSeriesPredictor:
             model_path (str): Path to the model file
             scaler_path (str): Path to the scaler file
         """
-        if not self._check_tensorflow():
-            return
-        
-        # Load model
-        self.model = self.tf.keras.models.load_model(model_path)
-        
-        # Load scaler
         try:
             import joblib
+            # Load scaler
             self.scaler = joblib.load(scaler_path)
-            self._is_fitted = True
-            logger.info(f"Model loaded from {model_path} and scaler from {scaler_path}")
+            
+            # Check if this is a fallback model
+            if os.path.exists(f"{model_path}_type.txt"):
+                with open(f"{model_path}_type.txt", "r") as f:
+                    model_type = f.read().strip()
+                
+                if model_type == "fallback":
+                    # Load sklearn model
+                    self.model = joblib.load(f"{model_path}_fallback.pkl")
+                    self.using_fallback = True
+                    self._is_fitted = True
+                    logger.info(f"Fallback model loaded from {model_path}_fallback.pkl")
+                    return
+            
+            # If not a fallback model, try loading TensorFlow model
+            if self._check_tensorflow():
+                self.model = self.tf.keras.models.load_model(model_path)
+                self._is_fitted = True
+                logger.info(f"TensorFlow model loaded from {model_path}")
+            else:
+                logger.error("TensorFlow not available and no fallback model found.")
+                
         except ImportError:
-            logger.error("joblib not available. Cannot load scaler.")
+            logger.error("joblib not available. Cannot load models.")
+        except FileNotFoundError as e:
+            logger.error(f"Model file not found: {e}")
 
 
 def predict_next_tick(df: pd.DataFrame, sensor_id: str, feature_cols: List[str], model_path: Optional[str] = None) -> Dict[str, float]:
@@ -273,7 +388,10 @@ def predict_next_tick(df: pd.DataFrame, sensor_id: str, feature_cols: List[str],
     
     if model_path:
         try:
-            predictor.load_model(f"{model_path}/{sensor_id}_model", f"{model_path}/{sensor_id}_scaler.pkl")
+            # Using the same path format as in the save_model method
+            model_base_path = f"{model_path}/{sensor_id}_model"
+            scaler_path = f"{model_base_path}_scaler.pkl"
+            predictor.load_model(model_base_path, scaler_path)
         except FileNotFoundError:
             # Train a new model if no saved model exists
             logger.info(f"No saved model found for {sensor_id}. Training a new model.")
@@ -291,8 +409,7 @@ def predict_next_tick(df: pd.DataFrame, sensor_id: str, feature_cols: List[str],
     
     # Create result dictionary
     result = {}
-    for i, col in enumerate(sensor_cols):
-        feature = col.split('_', 1)[1]  # Extract original feature name
-        result[feature] = float(prediction[i])
+    for i, col in enumerate(feature_cols):
+        result[col] = prediction[i]
     
     return result 

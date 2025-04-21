@@ -34,7 +34,7 @@ def extract_zip(zip_path: str, target_dir: str) -> bool:
 def main():
     """Main function to handle the extraction process."""
     # Default parameters
-    ZIP_FILE = "Logger_Data_2024_Bau_Bang-2.zip"
+    ZIP_FILE = "LeakDataset/Logger_Data_2024_Bau_Bang-2.zip"
     OUTPUT_DIR = "LeakDataset"
     
     # Validate zip file exists

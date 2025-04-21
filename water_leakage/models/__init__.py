@@ -1,4 +1,4 @@
-"""
+﻿"""
 Analysis and modeling code for the leak detection system.
 """
 from water_leakage.models.fourier import fourier_approximation

@@ -1,12 +1,12 @@
 ---
-description: 
+description: Workflow rule khi request agent mode
 globs: 
 alwaysApply: false
 ---
 - When user starts a new conversation:
-    1. Read memory_bank/long_term.md file to get the context of the project.
+    1. Read @memory_bank/long_term file to get the context of the project.
     2. Generate a workflow name (under 10 words, snake case).
-    3. Then, create file `memory_bank/wf_{workflow_name}.md`. The content must have the following sections:
+    3. Then, create file `memory_bank/wf_{workflow_name}`. The content must have the following sections:
     - Current tasks from user prompt.
     - Plan (simple): your plan & thoughts to solve task(s).
     - Steps: break your plan into small steps.
@@ -14,6 +14,6 @@ alwaysApply: false
     - Things not done yet
 
 - In a cycle of current conversation:
-    1. Read current `memory_bank/wf_{workflow_name}.md` file. Don't be lazy, don't omit any content.
+    1. Read current `memory_bank/wf_{workflow_name}` file. Don't be lazy, don't omit any content.
     2. Update plan and steps if needed, based on the current state.
     3. After you finish a task, update `Things done` and `Things not done yet` to track your work.
