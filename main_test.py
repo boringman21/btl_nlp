@@ -213,17 +213,18 @@ def plot_timeseries_and_filtered_days(clean_df, missing_by_date, sms):
 
 sms_tick_15m = [
     # 84797805118, # ko có pressure 1
-    841211914190, # dữ liệu có thể dùng để train
     841210802048,
     # 841210802047, # dữ liệu thiếu quá nhiều
     841210620665, # ko có dữ liệu flow
     841210607378, # ko có dữ liệu flow
+    
     840786560116, # có flow nhưng thiếu pressure 1 và 2, chỉ có thể dùng dể flow train cho flow
+    841211914190, # dữ liệu có thể dùng để train
     8401210607558, # đủ dữ liệu dể train
 ]
 
 sms_tick_5m = [
-    841212383325,
+    841212383325, # dữ liệu thiếu nhiều và bắt đầu từ tháng 6, ko có dữ liệu flow
 ]
 
 sms_have_full_data = [
