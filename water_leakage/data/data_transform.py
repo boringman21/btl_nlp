@@ -1,49 +1,66 @@
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Union, Tuple
+import os
+from joblib import Memory
 
+# Thiết lập thư mục cache cho data_transform
+cache_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'cache'))
+os.makedirs(cache_dir, exist_ok=True)
+memory = Memory(location=cache_dir, verbose=0)
 
 def transform_df(df: pd.DataFrame) -> pd.DataFrame:
+    # Drop specified columns
     columns_to_drop = ['_id', 'count', 'sum', 'average', 'min', 'max',
                       'startDate', 'endDate', 'lastDataUpdateTime', 'dataType']
     df = df.drop(columns=columns_to_drop, errors='ignore')
 
+
+    # Define column mapping based on chNumber
     ch_map = {0: '_Pressure_1', 1: '_Flow', 2: '_Pressure_2'}
 
+    # Generate column names for timestamps and values
     time_cols = np.array([f'dataValues.{i}.dataTime' for i in range(96)])
     value_cols = np.array([f'dataValues.{i}.dataValue' for i in range(96)])
 
+    # Filter valid chNumber values
     df = df[df['chNumber'].isin(ch_map.keys())].copy()
 
+    # Create column names using vectorized operations
     df['col_name'] = df['smsNumber'].astype(str) + df['chNumber'].map(ch_map)
 
-    timestamps = df[time_cols].to_numpy()
-    values = df[value_cols].to_numpy()
-    col_names = df['col_name'].to_numpy()
+    # Convert DataFrame to NumPy arrays for faster processing
+    timestamps = df[time_cols].to_numpy()  # Shape: (n_rows, 96)
+    values = df[value_cols].to_numpy()     # Shape: (n_rows, 96)
+    col_names = df['col_name'].to_numpy()  # Shape: (n_rows,)
 
+    # Reshape into long format using NumPy
     n_rows = len(df)
-    timestamps_flat = timestamps.reshape(n_rows * 96)
-    values_flat = values.reshape(n_rows * 96)
-    col_names_flat = np.repeat(col_names, 96)
+    timestamps_flat = timestamps.reshape(n_rows * 96)  # Shape: (n_rows * 96,)
+    values_flat = values.reshape(n_rows * 96)          # Shape: (n_rows * 96,)
+    col_names_flat = np.repeat(col_names, 96)          # Shape: (n_rows * 96,)
 
+    # Create a single DataFrame with all data
     long_df = pd.DataFrame({
         'Timestamp': timestamps_flat,
         'Value': values_flat,
         'Column': col_names_flat
     })
 
+    # Filter out invalid rows (NaN timestamps or values)
+    # long_df = long_df[long_df['Timestamp'].notna() & long_df['Value'].notna()]
     long_df = long_df[long_df['Timestamp'].notna()]
 
+    # Pivot the data efficiently
     result_df = long_df.pivot_table(
         index='Timestamp',
         columns='Column',
         values='Value',
-        aggfunc='first'
+        aggfunc='first'  # Use 'mean' or 'last' if preferred
     ).reset_index()
 
+    # Sort by timestamp
     result_df = result_df.sort_values('Timestamp').reset_index(drop=True)
-    
-    result_df['Timestamp'] = pd.to_datetime(result_df['Timestamp'])
 
     return result_df
 
