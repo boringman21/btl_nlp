@@ -216,9 +216,9 @@ sms_tick_15m = [
     841211914190, # dữ liệu có thể dùng để train
     841210802048,
     # 841210802047, # dữ liệu thiếu quá nhiều
-    841210620665,
+    841210620665, # ko có dữ liệu flow
     841210607378, # ko có dữ liệu flow
-    840786560116,
+    840786560116, # có flow nhưng thiếu pressure 1 và 2, chỉ có thể dùng dể flow train cho flow
     8401210607558, # đủ dữ liệu dể train
 ]
 
